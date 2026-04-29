@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SortDrift-Sentinel — Trosort</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0d12;
+  --bg-2:#10141c;
+  --bg-3:#161b25;
+  --line:#222936;
+  --line-2:#2c3445;
+  --ink:#e6ebf2;
+  --ink-2:#8290a3;
+  --ink-3:#54607a;
+  --amber:#ffb74d;
+  --red:#ff5c5c;
+  --green:#34d399;
+  --blue:#60a5fa;
+  --purple:#a78bfa;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background:var(--bg);color:var(--ink);
+  font-family:'Manrope',sans-serif;min-height:100vh;
+  background-image:
+    radial-gradient(ellipse at 100% 0%, rgba(255,92,92,.06), transparent 60%),
+    radial-gradient(ellipse at 0% 100%, rgba(255,183,77,.04), transparent 60%);
+}
+.mono{font-family:'IBM Plex Mono',monospace}
+
+/* Header */
+.hdr{
+  border-bottom:1px solid var(--line);
+  padding:.75rem 1.75rem;
+  display:flex;justify-content:space-between;align-items:center;
+  background:rgba(10,13,18,.85);backdrop-filter:blur(16px);
+  position:sticky;top:0;z-index:50;
+}
+.brand{display:flex;align-items:center;gap:.85rem}
+.bm{
+  width:42px;height:42px;border-radius:10px;
+  background:linear-gradient(135deg,#ff5c5c,#ffb74d);
+  display:grid;place-items:center;font-size:1.2rem;
+  box-shadow:0 0 25px rgba(255,92,92,.25);
+}
+.bn{font-size:1.25rem;font-weight:800;letter-spacing:-.02em}
+.bn .alt{color:var(--amber)}
+.bs{font-size:.6rem;color:var(--ink-2);text-transform:uppercase;letter-spacing:2.5px;margin-top:1px;font-family:'IBM Plex Mono',monospace}
+
+.hdr-r{display:flex;gap:.5rem;align-items:center}
+.deploy-pill{
+  background:var(--bg-3);border:1px solid var(--line);border-radius:8px;
+  padding:.4rem .65rem;font-family:'IBM Plex Mono',monospace;font-size:.7rem;
+  color:var(--ink-2);display:flex;align-items:center;gap:.5rem;
+}
+.deploy-pill::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 0 rgba(52,211,153,.4);animation:pulseG 2s infinite}
+@keyframes pulseG{0%,100%{box-shadow:0 0 0 0 rgba(52,211,153,.4)}50%{box-shadow:0 0 0 6px transparent}}
+.deploy-pill.warn::before{background:var(--amber);animation:pulseA 2s infinite}
+@keyframes pulseA{0%,100%{box-shadow:0 0 0 0 rgba(255,183,77,.4)}50%{box-shadow:0 0 0 6px transparent}}
+.deploy-pill.crit::before{background:var(--red);animation:pulseR 1s infinite}
+@keyframes pulseR{0%,100%{box-shadow:0 0 0 0 rgba(255,92,92,.5)}50%{box-shadow:0 0 0 7px transparent}}
+
+main{max-width:1700px;margin:0 auto;padding:1.5rem 1.75rem 3rem}
+
+/* Title */
+.title-row{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:1.5rem;gap:1rem;flex-wrap:wrap}
+.title-row h1{font-size:1.95rem;font-weight:800;letter-spacing:-.025em}
+.title-row p{color:var(--ink-2);font-size:.95rem;margin-top:.25rem}
+.client-switch{display:flex;gap:.3rem;flex-wrap:wrap}
+.client-btn{
+  background:var(--bg-3);border:1px solid var(--line);border-radius:8px;
+  padding:.5rem .8rem;font-family:'IBM Plex Mono',monospace;font-size:.72rem;
+  color:var(--ink-2);cursor:pointer;transition:all .2s;
+}
+.client-btn:hover{border-color:var(--line-2);color:var(--ink)}
+.client-btn.active{border-color:var(--amber);background:rgba(255,183,77,.08);color:var(--amber)}
+
+/* KPI strip */
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:.85rem;margin-bottom:1.25rem}
+@media(max-width:1100px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi{
+  background:var(--bg-2);border:1px solid var(--line);border-radius:14px;padding:1rem 1.1rem;
+  position:relative;overflow:hidden;
+}
+.kpi.warn{border-color:rgba(255,183,77,.35)}
+.kpi.warn::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--amber)}
+.kpi.crit{border-color:rgba(255,92,92,.4)}
+.kpi.crit::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--red)}
+.kpi.ok{border-color:rgba(52,211,153,.25)}
+.kpi.ok::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--green)}
+.kpi-l{font-size:.6rem;color:var(--ink-2);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:.55rem;font-family:'IBM Plex Mono',monospace}
+.kpi-v{font-size:1.7rem;font-weight:800;font-family:'IBM Plex Mono',monospace;letter-spacing:-.02em}
+.kpi-v.ok{color:var(--green)} .kpi-v.warn{color:var(--amber)} .kpi-v.crit{color:var(--red)}
+.kpi-d{font-size:.7rem;color:var(--ink-3);margin-top:.3rem;display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace}
+.kpi-d .delta.up{color:var(--red)} .kpi-d .delta.dn{color:var(--green)}
+
+/* Grid */
+.grid{display:grid;grid-template-columns:1.4fr 1fr;gap:1rem;margin-bottom:1rem}
+@media(max-width:1100px){.grid{grid-template-columns:1fr}}
+.card{background:var(--bg-2);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.card-h{padding:.85rem 1.1rem;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+.card-t{font-size:.85rem;font-weight:700;display:flex;align-items:center;gap:.5rem}
+.card-t .dot{width:7px;height:7px;border-radius:50%;background:var(--amber)}
+.card-tag{font-size:.65rem;color:var(--ink-3);font-family:'IBM Plex Mono',monospace}
+.card-b{padding:1.1rem}
+
+/* Time chart */
+.chart-wrap{position:relative;height:230px}
+.chart-axis{font-size:.62rem;fill:var(--ink-3);font-family:'IBM Plex Mono',monospace}
+.chart-grid line{stroke:var(--line);stroke-width:1}
+.chart-line{fill:none;stroke:var(--amber);stroke-width:2}
+.chart-area{fill:url(#gradAmb);opacity:.4}
+.chart-thresh{stroke:var(--red);stroke-width:1;stroke-dasharray:4,4;opacity:.6}
+.chart-pt{fill:var(--amber);stroke:var(--bg-2);stroke-width:2}
+.chart-pt.alert{fill:var(--red)}
+
+/* Heatmap */
+.heatmap{display:grid;gap:3px;font-family:'IBM Plex Mono',monospace}
+.hm-row{display:grid;grid-template-columns:120px repeat(14,1fr);gap:3px;align-items:center}
+.hm-row .hm-l{font-size:.7rem;color:var(--ink-2)}
+.hm-cell{aspect-ratio:1;border-radius:3px;cursor:pointer;transition:all .15s;min-height:18px}
+.hm-cell:hover{transform:scale(1.18);outline:1px solid var(--ink)}
+.hm-axis{display:grid;grid-template-columns:120px repeat(14,1fr);gap:3px;margin-top:6px;font-size:.55rem;color:var(--ink-3)}
+.hm-axis div{text-align:center}
+
+/* Active learning queue */
+.queue-item{
+  display:grid;grid-template-columns:64px 1fr 70px;gap:.8rem;align-items:center;
+  padding:.7rem;background:var(--bg-3);border-radius:10px;margin-bottom:.5rem;
+  border-left:3px solid var(--amber);transition:all .2s;cursor:pointer;
+}
+.queue-item:hover{background:var(--line);transform:translateX(2px)}
+.queue-item.crit{border-left-color:var(--red)}
+.queue-thumb{
+  width:64px;height:48px;border-radius:6px;
+  background:linear-gradient(135deg,#222936,#161b25);
+  display:grid;place-items:center;font-size:1.3rem;
+  border:1px solid var(--line-2);
+}
+.queue-mid{min-width:0}
+.queue-title{font-size:.78rem;font-weight:600;margin-bottom:.2rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.queue-meta{font-size:.62rem;color:var(--ink-3);font-family:'IBM Plex Mono',monospace}
+.queue-score{
+  text-align:right;
+}
+.queue-score .v{font-family:'IBM Plex Mono',monospace;font-size:.95rem;font-weight:700;color:var(--amber)}
+.queue-score.crit .v{color:var(--red)}
+.queue-score .l{font-size:.55rem;color:var(--ink-3);text-transform:uppercase;letter-spacing:1px;font-family:'IBM Plex Mono',monospace;margin-top:.15rem}
+
+/* PCA scatter */
+.scatter-wrap{position:relative;height:230px}
+.legend{display:flex;gap:1rem;font-size:.7rem;color:var(--ink-2);margin-top:.6rem;font-family:'IBM Plex Mono',monospace;flex-wrap:wrap}
+.legend .swatch{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle}
+
+/* Alerts feed */
+.alert-row{
+  display:flex;gap:.7rem;padding:.7rem;background:var(--bg-3);border-radius:9px;
+  margin-bottom:.45rem;border-left:3px solid var(--red);align-items:flex-start;
+  animation:slideIn .25s ease;
+}
+.alert-row.warn{border-left-color:var(--amber)}
+.alert-row.info{border-left-color:var(--blue)}
+@keyframes slideIn{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:translateX(0)}}
+.alert-icon{font-size:1rem;width:30px;height:30px;background:rgba(255,92,92,.12);border-radius:6px;display:grid;place-items:center;flex-shrink:0}
+.alert-row.warn .alert-icon{background:rgba(255,183,77,.12)}
+.alert-row.info .alert-icon{background:rgba(96,165,250,.12)}
+.alert-content{flex:1;min-width:0}
+.alert-title{font-size:.76rem;font-weight:600;margin-bottom:.15rem}
+.alert-meta{font-size:.62rem;color:var(--ink-3);font-family:'IBM Plex Mono',monospace}
+
+/* Buttons */
+.actions{display:flex;gap:.4rem}
+.action{
+  background:var(--bg-3);border:1px solid var(--line);border-radius:7px;
+  padding:.4rem .65rem;font-family:'IBM Plex Mono',monospace;font-size:.65rem;
+  color:var(--ink-2);cursor:pointer;transition:all .2s;
+}
+.action:hover{border-color:var(--amber);color:var(--amber)}
+
+/* Toast */
+.toast{position:fixed;bottom:1.25rem;right:1.25rem;background:var(--bg-2);border:1px solid var(--line);border-radius:10px;padding:.7rem 1rem;font-size:.78rem;display:flex;align-items:center;gap:.55rem;transform:translateY(80px);opacity:0;transition:all .3s;z-index:100;box-shadow:0 18px 50px rgba(0,0,0,.5)}
+.toast.show{transform:translateY(0);opacity:1}
+
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+.queue-list{max-height:380px;overflow-y:auto;padding-right:.25rem}
+.alert-list{max-height:380px;overflow-y:auto;padding-right:.25rem}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="brand">
+    <div class="bm">📡</div>
+    <div>
+      <div class="bn">SortDrift<span class="alt">·Sentinel</span></div>
+      <div class="bs">Trosort • Production Drift Monitoring</div>
+    </div>
+  </div>
+  <div class="hdr-r">
+    <span class="deploy-pill">RetextilGent · BE</span>
+    <span class="deploy-pill warn">Texaid · CH</span>
+    <span class="deploy-pill crit">EcoTextile · FR</span>
+    <span class="deploy-pill">SuperCircle · NL</span>
+  </div>
+</header>
+
+<main>
+
+  <div class="title-row">
+    <div>
+      <h1>🛰️ Production Drift Monitoring</h1>
+      <p>Embedding-space drift detection, per-attribute alarms, and active-learning queue across all live SortMate deployments.</p>
+    </div>
+    <div class="client-switch" id="clientSwitch">
+      <button class="client-btn active" data-c="0">All clients</button>
+      <button class="client-btn" data-c="1">RetextilGent · BE</button>
+      <button class="client-btn" data-c="2">Texaid · CH</button>
+      <button class="client-btn" data-c="3">EcoTextile · FR</button>
+    </div>
+  </div>
+
+  <!-- KPI strip -->
+  <div class="kpis" id="kpis"></div>
+
+  <!-- Top grid: time chart + queue -->
+  <div class="grid">
+    <div class="card">
+      <div class="card-h">
+        <span class="card-t"><span class="dot"></span> Drift Score · last 30 days</span>
+        <div class="actions">
+          <span class="card-tag">PSI · embedding L2</span>
+          <button class="action" onclick="rerollChart()">↻ refresh</button>
+        </div>
+      </div>
+      <div class="card-b">
+        <div class="chart-wrap">
+          <svg id="driftChart" viewBox="0 0 760 230" preserveAspectRatio="none" style="width:100%;height:100%"></svg>
+        </div>
+        <div class="legend">
+          <span><span class="swatch" style="background:var(--amber)"></span>Drift score (PSI)</span>
+          <span><span class="swatch" style="background:var(--red)"></span>Threshold (0.25)</span>
+          <span><span class="swatch" style="background:var(--green)"></span>Healthy</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h">
+        <span class="card-t">🎯 Active Learning Queue</span>
+        <span class="card-tag" id="queueCount">12 samples</span>
+      </div>
+      <div class="card-b">
+        <div class="queue-list" id="queueList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom grid: heatmap + scatter + alerts -->
+  <div class="grid">
+    <div class="card">
+      <div class="card-h">
+        <span class="card-t">🔥 Per-Attribute Drift Heatmap · 14 days</span>
+        <span class="card-tag">cell = daily PSI</span>
+      </div>
+      <div class="card-b">
+        <div class="heatmap" id="heatmap"></div>
+        <div class="hm-axis" id="hmAxis"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h">
+        <span class="card-t">🌐 Embedding Space (PCA)</span>
+        <span class="card-tag">train vs prod cluster</span>
+      </div>
+      <div class="card-b">
+        <div class="scatter-wrap">
+          <svg id="scatter" viewBox="0 0 380 230" style="width:100%;height:100%"></svg>
+        </div>
+        <div class="legend">
+          <span><span class="swatch" style="background:var(--blue)"></span>Train (40k)</span>
+          <span><span class="swatch" style="background:var(--amber)"></span>Prod last 7d (8.2k)</span>
+          <span><span class="swatch" style="background:var(--red)"></span>OOD (312)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alerts -->
+  <div class="card">
+    <div class="card-h">
+      <span class="card-t">🔔 Recent Alerts &amp; Events</span>
+      <div class="actions">
+        <button class="action" onclick="ackAll()">✓ Acknowledge all</button>
+        <button class="action" onclick="exportLog()">↓ Export</button>
+      </div>
+    </div>
+    <div class="card-b">
+      <div class="alert-list" id="alertList"></div>
+    </div>
+  </div>
+
+</main>
+
+<div class="toast" id="toast">
+  <span>✅</span>
+  <span id="toastMsg">—</span>
+</div>
+
+<script>
+// ===== Per-client data =====
+const CLIENTS = [
+  { // 0 = ALL
+    health: 78, drift: 0.31, ood: 3.8, flagged: 312, throughput: 14820,
+    chartSeed: 1.0, alerts:[
+      {t:'Color attribute drift spiked at EcoTextile · FR',m:'2 min ago · psi=0.41 → threshold 0.25',k:'crit'},
+      {t:'New brand cluster detected: "Shein"',m:'18 min ago · 184 unseen samples queued',k:'warn'},
+      {t:'Texaid · CH lighting condition changed',m:'1h ago · CCT shift +600K, defect head retraining advised',k:'warn'},
+      {t:'Active learning batch ready',m:'2h ago · 147 high-uncertainty samples · awaiting review',k:'info'},
+      {t:'NIR sensor calibration drift @ EcoTextile',m:'3h ago · cotton vs polyester confusion ↑12%',k:'crit'},
+      {t:'Defect head F1 dropped: 0.91 → 0.84',m:'yesterday · holes class regression detected',k:'warn'},
+    ]
+  },
+  { // 1 = RetextilGent
+    health: 94, drift: 0.12, ood: 1.1, flagged: 38, throughput: 4210,
+    chartSeed: 0.55, alerts:[
+      {t:'All systems nominal',m:'4 min ago · drift 0.12, threshold 0.25',k:'info'},
+      {t:'Workwear category share +8%',m:'1h ago · expected seasonal shift',k:'info'},
+      {t:'Recalibration completed',m:'yesterday · NIR baseline updated',k:'info'},
+    ]
+  },
+  { // 2 = Texaid
+    health: 71, drift: 0.28, ood: 4.2, flagged: 96, throughput: 3680,
+    chartSeed: 1.15, alerts:[
+      {t:'Lighting CCT shift +600K detected',m:'1h ago · LED panel replacement suspected',k:'warn'},
+      {t:'Brand head confusion: H&M ↔ Mango',m:'5h ago · 31 borderline samples',k:'warn'},
+      {t:'Throughput stable at 612/h',m:'today · within SLA',k:'info'},
+    ]
+  },
+  { // 3 = EcoTextile
+    health: 52, drift: 0.46, ood: 7.9, flagged: 178, throughput: 2410,
+    chartSeed: 1.85, alerts:[
+      {t:'CRITICAL · Color drift psi=0.46',m:'2 min ago · sustained 3 days · retraining required',k:'crit'},
+      {t:'NIR sensor cotton/polyester confusion ↑12%',m:'3h ago · sensor recalibration + retraining',k:'crit'},
+      {t:'New Asian fast-fashion brand cluster',m:'1d ago · 184 unseen brand samples',k:'warn'},
+      {t:'Defect head F1: 0.81 (target 0.90)',m:'2d ago · pilling false-negatives ↑',k:'warn'},
+    ]
+  },
+];
+
+const QUEUE = [
+  {emoji:'👕',title:'Unknown brand · denim style mismatch',meta:'EcoTextile · 2m ago · embed_dist=4.21',score:'0.92',crit:true},
+  {emoji:'🧥',title:'Outdoor jacket — fiber confusion (PES↔PA)',meta:'EcoTextile · 4m ago · NIR low-conf',score:'0.89',crit:true},
+  {emoji:'👖',title:'Distressed jeans — defect false-positive',meta:'Texaid · 8m ago · holes vs design',score:'0.83',crit:false},
+  {emoji:'👚',title:'Vintage blouse — era classifier OOD',meta:'RetextilGent · 12m ago · pre-1980s',score:'0.81',crit:false},
+  {emoji:'🩳',title:'Athletic shorts — brand head split top-2',meta:'EcoTextile · 15m ago · Nike vs Decathlon',score:'0.79',crit:false},
+  {emoji:'👗',title:'Embellished dress — attribute miss',meta:'Texaid · 22m ago · style="N/A"',score:'0.77',crit:false},
+  {emoji:'🧦',title:'Workwear coverall — category absent',meta:'RetextilGent · 25m ago · new SKU type',score:'0.74',crit:false},
+  {emoji:'🥋',title:'Kimono-style top — geo OOD',meta:'EcoTextile · 31m ago · style cluster missing',score:'0.72',crit:false},
+  {emoji:'👜',title:'Tote bag misclassified as garment',meta:'Texaid · 38m ago · category violated',score:'0.69',crit:false},
+  {emoji:'🧥',title:'Reflective vest — color confusion',meta:'EcoTextile · 44m ago · neon yellow OOD',score:'0.66',crit:false},
+  {emoji:'👕',title:'Logo tee — brand head abstain',meta:'RetextilGent · 51m ago · top-1 < 0.5',score:'0.62',crit:false},
+  {emoji:'👖',title:'Cargo pants — fit attr drift',meta:'Texaid · 58m ago · loose vs regular',score:'0.58',crit:false},
+];
+
+const ATTRS = ['brand','category','color','style','material','defect','size','fit'];
+
+// ===== Render KPIs =====
+function renderKpis(c){
+  const k = document.getElementById('kpis');
+  const healthClass = c.health>=85?'ok':(c.health>=65?'warn':'crit');
+  const driftClass  = c.drift<0.20?'ok':(c.drift<0.30?'warn':'crit');
+  const oodClass    = c.ood<2?'ok':(c.ood<5?'warn':'crit');
+  const flagClass   = c.flagged<50?'ok':(c.flagged<150?'warn':'crit');
+  k.innerHTML = `
+    <div class="kpi ${healthClass}">
+      <div class="kpi-l">Pipeline Health</div>
+      <div class="kpi-v ${healthClass}">${c.health}<span style="font-size:.9rem;color:var(--ink-3)">/100</span></div>
+      <div class="kpi-d"><span>composite</span><span class="delta ${c.health>=85?'dn':'up'}">${c.health>=85?'▼':'▲'} ${Math.abs(85-c.health)}</span></div>
+    </div>
+    <div class="kpi ${driftClass}">
+      <div class="kpi-l">Drift Score (PSI)</div>
+      <div class="kpi-v ${driftClass}">${c.drift.toFixed(2)}</div>
+      <div class="kpi-d"><span>threshold 0.25</span><span class="delta ${c.drift<0.25?'dn':'up'}">${c.drift<0.25?'▼':'▲'} ${Math.abs(0.25-c.drift).toFixed(2)}</span></div>
+    </div>
+    <div class="kpi ${oodClass}">
+      <div class="kpi-l">OOD rate · 7d</div>
+      <div class="kpi-v ${oodClass}">${c.ood.toFixed(1)}<span style="font-size:.9rem">%</span></div>
+      <div class="kpi-d"><span>baseline 1.5%</span><span class="delta up">▲ ${(c.ood-1.5).toFixed(1)}</span></div>
+    </div>
+    <div class="kpi ${flagClass}">
+      <div class="kpi-l">Samples flagged</div>
+      <div class="kpi-v ${flagClass}">${c.flagged}</div>
+      <div class="kpi-d"><span>awaiting review</span><span class="delta up">▲ 12</span></div>
+    </div>
+    <div class="kpi ok">
+      <div class="kpi-l">Throughput · 24h</div>
+      <div class="kpi-v ok">${(c.throughput/1000).toFixed(1)}k</div>
+      <div class="kpi-d"><span>garments / day</span><span class="delta dn">▼ on plan</span></div>
+    </div>
+  `;
+}
+
+// ===== Drift chart (SVG) =====
+function renderChart(seed){
+  const W=760,H=230,P=28;
+  const days=30;
+  const pts=[];
+  let v=0.10*seed;
+  for(let i=0;i<days;i++){
+    v += (Math.random()-0.45)*0.04*seed;
+    v = Math.max(0.04, Math.min(0.55, v));
+    pts.push(v);
+  }
+  const xMax=days-1, yMax=0.55;
+  const x=i=>P + (i/xMax)*(W-2*P);
+  const y=v=>H-P - (v/yMax)*(H-2*P);
+
+  const grid=[0,0.15,0.30,0.45].map(g=>`<line class="" x1="${P}" y1="${y(g)}" x2="${W-P}" y2="${y(g)}" stroke="${'var(--line)'}" stroke-width="1"/>`).join('');
+  const labels=[0,0.15,0.30,0.45].map(g=>`<text class="chart-axis" x="${P-6}" y="${y(g)+3}" text-anchor="end">${g.toFixed(2)}</text>`).join('');
+  const xLabels=[0,7,14,21,29].map(i=>`<text class="chart-axis" x="${x(i)}" y="${H-P+14}" text-anchor="middle">d-${days-1-i}</text>`).join('');
+
+  let path=`M ${x(0)} ${y(pts[0])}`;
+  pts.forEach((p,i)=>{ if(i>0) path+=` L ${x(i)} ${y(p)}`; });
+  let area=path + ` L ${x(xMax)} ${y(0)} L ${x(0)} ${y(0)} Z`;
+
+  const ptsSvg = pts.map((p,i)=>`<circle class="chart-pt ${p>0.25?'alert':''}" cx="${x(i)}" cy="${y(p)}" r="${p>0.25?3.6:2.4}"/>`).join('');
+
+  document.getElementById('driftChart').innerHTML=`
+    <defs>
+      <linearGradient id="gradAmb" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#ffb74d" stop-opacity="0.4"/>
+        <stop offset="100%" stop-color="#ffb74d" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    ${grid}
+    <line class="chart-thresh" x1="${P}" y1="${y(0.25)}" x2="${W-P}" y2="${y(0.25)}"/>
+    <path class="chart-area" d="${area}"/>
+    <path class="chart-line" d="${path}"/>
+    ${ptsSvg}
+    ${labels}${xLabels}
+    <text class="chart-axis" x="${W-P-6}" y="${y(0.25)-4}" text-anchor="end" fill="#ff5c5c">threshold</text>
+  `;
+}
+
+// ===== Heatmap =====
+function renderHeatmap(seed){
+  const root = document.getElementById('heatmap');
+  const axis = document.getElementById('hmAxis');
+  let html='';
+  ATTRS.forEach(a=>{
+    let row=`<div class="hm-row"><div class="hm-l">${a}</div>`;
+    for(let d=0;d<14;d++){
+      let v = Math.random()*0.35*seed;
+      // bias certain attributes higher for realism
+      if(a==='color'||a==='brand') v *= 1.3;
+      if(a==='size'||a==='fit') v *= 0.6;
+      v = Math.min(0.55, v);
+      let color, intensity = v/0.5;
+      if(v<0.15) color = `rgba(52,211,153, ${0.3+intensity*0.7})`;
+      else if(v<0.25) color = `rgba(255,183,77, ${0.4+intensity*0.6})`;
+      else color = `rgba(255,92,92, ${0.5+intensity*0.5})`;
+      row+=`<div class="hm-cell" style="background:${color}" title="${a} · day ${14-d} · psi=${v.toFixed(2)}"></div>`;
+    }
+    row+=`</div>`;
+    html+=row;
+  });
+  root.innerHTML=html;
+
+  let ax=`<div></div>`;
+  for(let d=0;d<14;d++) ax+=`<div>d-${13-d}</div>`;
+  axis.innerHTML=ax;
+}
+
+// ===== Scatter (PCA) =====
+function renderScatter(seed){
+  const W=380,H=230;
+  let svg=`<rect x="0" y="0" width="${W}" height="${H}" fill="transparent"/>`;
+  // grid
+  for(let i=1;i<5;i++){
+    svg+=`<line x1="${i*W/5}" y1="0" x2="${i*W/5}" y2="${H}" stroke="var(--line)" stroke-width="1"/>`;
+    svg+=`<line x1="0" y1="${i*H/5}" x2="${W}" y2="${i*H/5}" stroke="var(--line)" stroke-width="1"/>`;
+  }
+  // train cluster (centered)
+  for(let i=0;i<160;i++){
+    const cx=W/2 + (Math.random()-0.5)*W*0.35;
+    const cy=H/2 + (Math.random()-0.5)*H*0.4;
+    svg+=`<circle cx="${cx}" cy="${cy}" r="2" fill="#60a5fa" opacity="0.55"/>`;
+  }
+  // prod cluster (slightly shifted)
+  const shiftX = 30*seed, shiftY = -20*seed;
+  for(let i=0;i<110;i++){
+    const cx=W/2+shiftX + (Math.random()-0.5)*W*0.35;
+    const cy=H/2+shiftY + (Math.random()-0.5)*H*0.4;
+    svg+=`<circle cx="${cx}" cy="${cy}" r="2" fill="#ffb74d" opacity="0.65"/>`;
+  }
+  // OOD outliers
+  for(let i=0;i<14;i++){
+    const cx=Math.random()*W, cy=Math.random()*H;
+    const dist=Math.hypot(cx-W/2,cy-H/2);
+    if(dist>W*0.32) svg+=`<circle cx="${cx}" cy="${cy}" r="3" fill="#ff5c5c" stroke="#ff5c5c" stroke-opacity="0.35" stroke-width="4"/>`;
+  }
+  document.getElementById('scatter').innerHTML=svg;
+}
+
+// ===== Queue =====
+function renderQueue(){
+  const list = document.getElementById('queueList');
+  list.innerHTML='';
+  QUEUE.forEach(q=>{
+    const el = document.createElement('div');
+    el.className = 'queue-item' + (q.crit?' crit':'');
+    el.innerHTML = `
+      <div class="queue-thumb">${q.emoji}</div>
+      <div class="queue-mid">
+        <div class="queue-title">${q.title}</div>
+        <div class="queue-meta">${q.meta}</div>
+      </div>
+      <div class="queue-score ${q.crit?'crit':''}">
+        <div class="v">${q.score}</div>
+        <div class="l">uncertainty</div>
+      </div>
+    `;
+    el.onclick = ()=>toast(`Queued for relabel: ${q.title.slice(0,40)}…`);
+    list.appendChild(el);
+  });
+  document.getElementById('queueCount').textContent = `${QUEUE.length} samples · sorted by uncertainty`;
+}
+
+// ===== Alerts =====
+function renderAlerts(c){
+  const list=document.getElementById('alertList');
+  list.innerHTML='';
+  c.alerts.forEach(a=>{
+    const icon = a.k==='crit'?'⛔':(a.k==='warn'?'⚠':'ℹ');
+    const el=document.createElement('div');
+    el.className='alert-row '+a.k;
+    el.innerHTML=`
+      <div class="alert-icon">${icon}</div>
+      <div class="alert-content">
+        <div class="alert-title">${a.t}</div>
+        <div class="alert-meta">${a.m}</div>
+      </div>
+    `;
+    list.appendChild(el);
+  });
+}
+
+// ===== Switching clients =====
+let currentClient = 0;
+function switchClient(i){
+  currentClient = i;
+  const c = CLIENTS[i];
+  renderKpis(c);
+  renderChart(c.chartSeed);
+  renderHeatmap(c.chartSeed);
+  renderScatter(c.chartSeed);
+  renderAlerts(c);
+}
+
+document.querySelectorAll('.client-btn').forEach(b=>{
+  b.onclick = ()=>{
+    document.querySelectorAll('.client-btn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    switchClient(parseInt(b.dataset.c));
+    toast('View switched: '+b.textContent);
+  };
+});
+
+function rerollChart(){
+  renderChart(CLIENTS[currentClient].chartSeed);
+  renderHeatmap(CLIENTS[currentClient].chartSeed);
+  renderScatter(CLIENTS[currentClient].chartSeed);
+  toast('Drift score refreshed');
+}
+function ackAll(){toast('All alerts acknowledged');}
+function exportLog(){toast('Log exported · drift_log.csv');}
+
+function toast(msg){
+  const el=document.getElementById('toast');
+  document.getElementById('toastMsg').textContent=msg;
+  el.classList.add('show');
+  clearTimeout(window._t);
+  window._t=setTimeout(()=>el.classList.remove('show'),2200);
+}
+
+// Initial render
+switchClient(0);
+renderQueue();
+
+// Live ticker — periodically reroll a few KPI digits & add a subtle alert
+setInterval(()=>{
+  if(Math.random()>0.6){
+    const c = CLIENTS[currentClient];
+    c.flagged += Math.floor(Math.random()*4);
+    renderKpis(c);
+  }
+},4000);
+</script>
+</body>
+</html>
